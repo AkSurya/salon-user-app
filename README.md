@@ -1,8 +1,8 @@
-💇‍♀️ Saloon Booking App
+# 💇‍♀️ **Saloon Booking App**
 
 A mobile application designed to simplify salon appointment booking by connecting users with nearby local salons, services, and stylists — all in one place.
 
-📌 Project Overview
+**📌 Project Overview**
 
 The Saloon Booking App is a Flutter-based mobile application aimed at solving common problems faced by customers while booking salon appointments, such as:
 
@@ -13,7 +13,7 @@ The Saloon Booking App is a Flutter-based mobile application aimed at solving co
 
 This app allows users to discover salons, explore services, and book appointments remotely with ease.
 
-🎯 Objectives
+**🎯 Objectives**
 
 - Enable users to book salon appointments online
 - Promote local salons by providing them a digital platform
@@ -21,13 +21,13 @@ This app allows users to discover salons, explore services, and book appointment
 - Provide service-based and review-based salon discovery
 - Build a scalable foundation for a complete salon ecosystem
 
-👥 Target Users
+**👥 Target Users**
 
 - Primary: Female users (initial phase)
 - Future expansion: Male users and kids
 - Target region: India
 
-✨ Key Features (MVP)
+**✨ Key Features (MVP)**
 
 - User authentication (Email / OTP)
 - Home page with services and recommended salons
@@ -37,7 +37,7 @@ This app allows users to discover salons, explore services, and book appointment
 - Appointment history and calendar view
 - Firebase backend integration
 
-🛠️ Tech Stack
+**🛠️ Tech Stack**
 
 - Frontend: Flutter (Dart)
 - Backend: Firebase 
@@ -45,7 +45,7 @@ This app allows users to discover salons, explore services, and book appointment
   - Cloud Firestore
 - Platform: Android (APK for academic submission)
 
-🚀 Future Scope
+**🚀 Future Scope**
 
 - Salon owner application
 - Admin dashboard
@@ -55,19 +55,19 @@ This app allows users to discover salons, explore services, and book appointment
 - Notifications and reminders
 - Membership and commission-based monetization
 
-👨‍💻 Team
+**👨‍💻 Team**
 
 - A team of 3 developers working collaboratively
 - Modular development with Git-based version control
 - Role-based feature ownership
 
-📅 Project Status
+**📅 Project Status**
 
 - Current Phase: MVP development
 - Purpose: Academic major project (8th Semester B.Tech)
 - Planned Expansion: Startup-ready scalable architecture
 
-📄 License
+**📄 License**
 
 This project is currently developed for academic and learning purposes.
 All rights reserved.
