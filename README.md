@@ -71,3 +71,6 @@ This app allows users to discover salons, explore services, and book appointment
 
 This project is currently developed for academic and learning purposes.
 All rights reserved.
+
+
+This is a test line
