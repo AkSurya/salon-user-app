@@ -74,4 +74,4 @@ All rights reserved.
 
 This is a test line.
 
-git pull testing on wajahat system.
+Git pull testing on kwajahat system.
