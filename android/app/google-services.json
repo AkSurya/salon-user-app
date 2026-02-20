@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "215789025643",
-    "project_id": "saloon-booking-app-beautiq",
-    "storage_bucket": "saloon-booking-app-beautiq.firebasestorage.app"
+    "project_number": "315178993474",
+    "project_id": "salon-app-b8148",
+    "storage_bucket": "salon-app-b8148.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:215789025643:android:9eb84c3f387c7f3e4f342e",
+        "mobilesdk_app_id": "1:315178993474:android:ed64b0b246ec16d0e76adb",
         "android_client_info": {
-          "package_name": "com.example.saloon_booking_app"
+          "package_name": "com.example.salonapp"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBqJpyKsxTwwPmVFnleKirih6gRUAblR3g"
+          "current_key": "AIzaSyA2ym7CPaWbib85toyAkrxbAoMFjMwflNY"
         }
       ],
       "services": {

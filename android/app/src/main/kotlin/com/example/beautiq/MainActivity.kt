@@ -1,4 +1,4 @@
-package com.example.saloon_booking_app
+package com.example.beautiq
 
 import io.flutter.embedding.android.FlutterActivity
 
