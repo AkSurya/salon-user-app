@@ -18,9 +18,6 @@ dependencies:
   cloud_firestore: ^6.1.2
   add_2_calendar: ^2.2.3
 
-
-
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
