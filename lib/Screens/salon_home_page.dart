@@ -135,36 +135,36 @@ class _SalonHomePageState extends State<SalonHomePage> {
       backgroundColor: const Color(0xFFF6F6F6),
 
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        centerTitle: true,
-        title: const Text(
-          "Beautiq",
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ProfilePage(),
-                  ),
-                );
-              },
-              child: const CircleAvatar(
-                radius: 18,
-                backgroundColor: Colors.pink,
-                child: Icon(Icons.person, color: Colors.white),
-              ),
+  backgroundColor: Colors.white,
+  centerTitle: true,
+  title: const Text(
+    "Beautiq",
+    style: TextStyle(
+      color: Colors.black,
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+  actions: [
+    Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const ProfilePage(),
             ),
-          ),
-        ],
+          );
+        },
+        child: const CircleAvatar(
+          radius: 18,
+          backgroundColor: Colors.pink,
+          child: Icon(Icons.person, color: Colors.white),
+        ),
       ),
+    ),
+  ],
+),
 
 
       body: SingleChildScrollView(

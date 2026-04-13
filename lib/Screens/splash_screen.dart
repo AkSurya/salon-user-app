@@ -160,19 +160,19 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  Widget _girl() {
-    return FadeTransition(
-      opacity: _girlFade,
-      child: Transform.translate(
-        offset: const Offset(0, 2),
-        child: const Icon(
-          Icons.pregnant_woman,
-          size: 52,
-          color: Colors.pink,
-        ),
+Widget _girl() {
+  return FadeTransition(
+    opacity: _girlFade,
+    child: Transform.translate(
+      offset: const Offset(0, 2), 
+      child: const Icon(
+        Icons.pregnant_woman,
+        size: 52, 
+        color: Colors.pink,
       ),
-    );
-  }
+    ),
+  );
+}
 
 
   @override
