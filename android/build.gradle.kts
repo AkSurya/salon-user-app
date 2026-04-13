@@ -34,6 +34,14 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+allprojects {
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+        kotlinOptions {
+            jvmTarget = "17"
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

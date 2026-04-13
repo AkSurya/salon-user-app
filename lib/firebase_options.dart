@@ -50,11 +50,12 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyA2ym7CPaWbib85toyAkrxbAoMFjMwflNY',
-    appId: '1:315178993474:android:ed64b0b246ec16d0e76adb',
-    messagingSenderId: '315178993474',
-    projectId: 'salon-app-b8148',
-    storageBucket: 'salon-app-b8148.firebasestorage.app',
+    apiKey: 'AIzaSyBqJpyKsxTwwPmVFnleKirih6gRUAblR3g',
+    appId: '1:215789025643:android:f06cae32f64b5d7b4f342e',
+    messagingSenderId: '215789025643',
+    projectId: 'saloon-booking-app-beautiq',
+    databaseURL: 'https://saloon-booking-app-beautiq-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'saloon-booking-app-beautiq.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
