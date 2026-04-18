@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:Beautiq/screens/profile_page.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'salon_detail_page.dart';
 import 'service_detail_page.dart';
 import 'cart_page.dart';
@@ -20,6 +21,26 @@ class _SalonHomePageState extends State<SalonHomePage> {
 
   FilterType selectedFilter = FilterType.all;
 
+  // ── Firestore ──────────────────────────────────────────────────────────────
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  List<Map<String, dynamic>> _salons = [];
+  bool _isLoadingSalons = true;
+
+  // ── Local fallback images (Option A) ──────────────────────────────────────
+  // When we move to Firebase Storage (Option B), replace this with
+  // salon["imageUrl"] from Firestore directly.
+  final List<String> _localSalonImages = [
+    "assets/images/salons/salon_1.png",
+    "assets/images/salons/salon_2.png",
+    "assets/images/salons/salon_3.png",
+    "assets/images/salons/salon_4.png",
+  ];
+
+  String _getLocalImage(int index) {
+    return _localSalonImages[index % _localSalonImages.length];
+  }
+
+  // ── Services (still local for now) ────────────────────────────────────────
   final List<Map<String, dynamic>> services = const [
     {
       "title": "Haircut",
@@ -59,60 +80,57 @@ class _SalonHomePageState extends State<SalonHomePage> {
     },
   ];
 
-  final List<Map<String, dynamic>> salons = const [
-    {
-      "name": "Royal Cuts Salon",
-      "image": "assets/images/salons/salon_1.png",
-      "rating": 4.5,
-      "type": "male",
-      "offer": "20% OFF on first visit",
-      "services": ["Haircut", "Shaving"]
-    },
-    {
-      "name": "Urban Style Studio",
-      "image": "assets/images/salons/salon_2.png",
-      "rating": 4.2,
-      "type": "female",
-      "offer": "Free facial on booking",
-      "services": ["Facial", "MakeUp", "Threading"]
-    },
-    {
-      "name": "Fashion Hub",
-      "image": "assets/images/salons/salon_4.png",
-      "rating": 4.4,
-      "type": "female",
-      "offer": "₹100 OFF today",
-      "services": ["MakeUp", "Massage"]
-    },
-    {
-      "name": "Grooming House",
-      "image": "assets/images/salons/salon_3.png",
-      "rating": 4.8,
-      "type": "male",
-      "offer": "Premium grooming",
-      "services": ["Haircut", "Shaving"]
-    },
-  ];
-
-
+  // ── Filtering ──────────────────────────────────────────────────────────────
   List<Map<String, dynamic>> get filteredServices {
     if (selectedFilter == FilterType.all) return services;
     return services.where((s) => s["type"] == selectedFilter.name).toList();
   }
 
   List<Map<String, dynamic>> get filteredSalons {
-    if (selectedFilter == FilterType.all) return salons;
-    return salons.where((s) => s["type"] == selectedFilter.name).toList();
+    if (selectedFilter == FilterType.all) return _salons;
+    return _salons.where((s) {
+      final type = (s["salonType"] ?? "").toString().toLowerCase();
+      if (selectedFilter == FilterType.male) {
+        return type.contains("male") && !type.contains("female");
+      } else if (selectedFilter == FilterType.female) {
+        return type.contains("female");
+      }
+      return true;
+    }).toList();
+  }
+
+  // ── Fetch salons from Firestore ────────────────────────────────────────────
+  Future<void> _fetchSalons() async {
+    try {
+      final snapshot = await _firestore.collection('salons').get();
+      final List<Map<String, dynamic>> fetched = [];
+      for (int i = 0; i < snapshot.docs.length; i++) {
+        final data = snapshot.docs[i].data();
+        data['id'] = snapshot.docs[i].id;
+        // Option A: assign local image by index
+        // Option B: use data['imageUrl'] directly when available
+        data['localImage'] = _getLocalImage(i);
+        fetched.add(data);
+      }
+      setState(() {
+        _salons = fetched;
+        _isLoadingSalons = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingSalons = false);
+      debugPrint('Error fetching salons: $e');
+    }
   }
 
   @override
   void initState() {
     super.initState();
+    _fetchSalons();
     _timer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (_scrollController.hasClients) {
+      if (_scrollController.hasClients &&
+          _scrollController.position.maxScrollExtent > 0) {
         final max = _scrollController.position.maxScrollExtent;
         final next = _scrollController.offset + 200;
-
         _scrollController.animateTo(
           next >= max ? 0 : next,
           duration: const Duration(milliseconds: 700),
@@ -133,56 +151,49 @@ class _SalonHomePageState extends State<SalonHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F6F6),
-
       appBar: AppBar(
-  backgroundColor: Colors.white,
-  centerTitle: true,
-  title: const Text(
-    "Beautiq",
-    style: TextStyle(
-      color: Colors.black,
-      fontWeight: FontWeight.bold,
-    ),
-  ),
-  actions: [
-    Padding(
-      padding: const EdgeInsets.only(right: 12),
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const ProfilePage(),
-            ),
-          );
-        },
-        child: const CircleAvatar(
-          radius: 18,
-          backgroundColor: Colors.pink,
-          child: Icon(Icons.person, color: Colors.white),
+        backgroundColor: Colors.white,
+        centerTitle: true,
+        title: const Text(
+          "Beautiq",
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfilePage()),
+                );
+              },
+              child: const CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.pink,
+                child: Icon(Icons.person, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
       ),
-    ),
-  ],
-),
-
-
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             const Text("Hello 👋", style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 6),
             const Text(
               "Looking for a fresh style today?",
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
-
             const SizedBox(height: 20),
 
-            /// 🔍 SEARCH + FILTER TOGGLE
+            // 🔍 SEARCH + FILTER
             Row(
               children: [
                 Expanded(
@@ -200,15 +211,11 @@ class _SalonHomePageState extends State<SalonHomePage> {
                   ),
                 ),
                 const SizedBox(width: 10),
-
-                /// FILTER DROPDOWN
                 PopupMenuButton<FilterType>(
                   onSelected: (value) {
-                    setState(() {
-                      selectedFilter = value;
-                    });
+                    setState(() => selectedFilter = value);
                   },
-                  color: Colors.white, // dropdown background
+                  color: Colors.white,
                   itemBuilder: (context) => const [
                     PopupMenuItem(
                       value: FilterType.all,
@@ -216,12 +223,13 @@ class _SalonHomePageState extends State<SalonHomePage> {
                     ),
                     PopupMenuItem(
                       value: FilterType.male,
-                      child: Text("Male", style: TextStyle(color: Colors.black)),
+                      child:
+                      Text("Male", style: TextStyle(color: Colors.black)),
                     ),
                     PopupMenuItem(
                       value: FilterType.female,
-                      child:
-                      Text("Female", style: TextStyle(color: Colors.black)),
+                      child: Text("Female",
+                          style: TextStyle(color: Colors.black)),
                     ),
                   ],
                   child: Container(
@@ -230,25 +238,36 @@ class _SalonHomePageState extends State<SalonHomePage> {
                       color: Colors.black,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
-                      Icons.filter_list,
-                      color: Colors.white,
-                    ),
+                    child: const Icon(Icons.filter_list, color: Colors.white),
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 25),
 
-            /// SALONS
+            // SALONS
             const Text(
               "Salons Near You",
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
 
-            SizedBox(
+            _isLoadingSalons
+                ? const SizedBox(
+              height: 160,
+              child: Center(child: CircularProgressIndicator(color: Colors.pink)),
+            )
+                : filteredSalons.isEmpty
+                ? const SizedBox(
+              height: 160,
+              child: Center(
+                child: Text(
+                  "No salons available yet",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
+                : SizedBox(
               height: 160,
               child: ListView.builder(
                 controller: _scrollController,
@@ -256,7 +275,6 @@ class _SalonHomePageState extends State<SalonHomePage> {
                 itemCount: filteredSalons.length,
                 itemBuilder: (context, i) {
                   final salon = filteredSalons[i];
-
                   return InkWell(
                     onTap: () {
                       Navigator.push(
@@ -283,18 +301,18 @@ class _SalonHomePageState extends State<SalonHomePage> {
                       ),
                       child: Stack(
                         children: [
-                          /// IMAGE
+                          // IMAGE — Option A: local asset
+                          // Option B: replace Image.asset with Image.network(salon["imageUrl"])
                           ClipRRect(
                             borderRadius: BorderRadius.circular(16),
                             child: Image.asset(
-                              salon["image"],
+                              salon["localImage"],
                               width: double.infinity,
                               height: double.infinity,
                               fit: BoxFit.cover,
                             ),
                           ),
-
-                          /// OVERLAY
+                          // OVERLAY
                           Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
@@ -308,17 +326,17 @@ class _SalonHomePageState extends State<SalonHomePage> {
                               ),
                             ),
                           ),
-
-                          /// TEXT
+                          // TEXT
                           Positioned(
                             left: 12,
                             bottom: 12,
                             right: 12,
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  salon["name"],
+                                  salon["name"] ?? "Salon",
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -327,11 +345,15 @@ class _SalonHomePageState extends State<SalonHomePage> {
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    const Icon(Icons.star, color: Colors.amber, size: 14),
+                                    const Icon(Icons.star,
+                                        color: Colors.amber,
+                                        size: 14),
                                     const SizedBox(width: 4),
                                     Text(
-                                      salon["rating"].toString(),
-                                      style: const TextStyle(color: Colors.white),
+                                      (salon["rating"] ?? 0.0)
+                                          .toString(),
+                                      style: const TextStyle(
+                                          color: Colors.white),
                                     ),
                                   ],
                                 ),
@@ -348,7 +370,7 @@ class _SalonHomePageState extends State<SalonHomePage> {
 
             const SizedBox(height: 30),
 
-            /// SERVICES
+            // SERVICES
             const Text(
               "Our Services",
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -367,14 +389,12 @@ class _SalonHomePageState extends State<SalonHomePage> {
               ),
               itemBuilder: (context, i) {
                 final service = filteredServices[i];
-
                 return InkWell(
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            ServiceDetailPage(service: service),
+                        builder: (_) => ServiceDetailPage(service: service),
                       ),
                     );
                   },
@@ -390,7 +410,6 @@ class _SalonHomePageState extends State<SalonHomePage> {
                     ),
                     child: Stack(
                       children: [
-                        /// IMAGE
                         ClipRRect(
                           borderRadius: BorderRadius.circular(16),
                           child: Image.asset(
@@ -400,8 +419,6 @@ class _SalonHomePageState extends State<SalonHomePage> {
                             fit: BoxFit.cover,
                           ),
                         ),
-
-                        /// OVERLAY
                         Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(16),
@@ -415,8 +432,6 @@ class _SalonHomePageState extends State<SalonHomePage> {
                             ),
                           ),
                         ),
-
-                        /// TEXT
                         Positioned(
                           left: 12,
                           right: 12,
@@ -435,9 +450,8 @@ class _SalonHomePageState extends State<SalonHomePage> {
                               const SizedBox(height: 4),
                               Text(
                                 "₹${service["price"]}",
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                ),
+                                style:
+                                const TextStyle(color: Colors.white70),
                               ),
                             ],
                           ),
@@ -451,7 +465,6 @@ class _SalonHomePageState extends State<SalonHomePage> {
           ],
         ),
       ),
-
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.pink,
         onPressed: () {

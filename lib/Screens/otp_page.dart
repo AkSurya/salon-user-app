@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:Beautiq/screens/main_navigation.dart';
+import 'package:Beautiq/screens/user_name_screen.dart';
 import 'package:Beautiq/db_services/phone_auth_service.dart';
 
 class OtpPage extends StatefulWidget {
@@ -13,7 +16,7 @@ class OtpPage extends StatefulWidget {
 
 class _OtpPageState extends State<OtpPage> {
   final List<TextEditingController> controllers =
-      List.generate(6, (_) => TextEditingController());
+  List.generate(6, (_) => TextEditingController());
 
   bool isLoading = false;
 
@@ -63,16 +66,46 @@ class _OtpPageState extends State<OtpPage> {
     setState(() => isLoading = false);
 
     if (userCredential != null) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const MainNavigation(),
-        ),
-        (route) => false,
-      );
+      await _checkAndNavigate(userCredential.user!);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Invalid OTP")),
+      );
+    }
+  }
+
+  // Check if user already has a name saved in Firestore
+  Future<void> _checkAndNavigate(User user) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!mounted) return;
+
+      if (doc.exists && (doc.data()?['name'] ?? '').toString().isNotEmpty) {
+        // Existing user — go straight to home
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const MainNavigation()),
+              (route) => false,
+        );
+      } else {
+        // New user — collect name first
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const UserNameScreen()),
+              (route) => false,
+        );
+      }
+    } catch (e) {
+      // If Firestore check fails, go to home anyway
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
+            (route) => false,
       );
     }
   }
@@ -89,45 +122,24 @@ class _OtpPageState extends State<OtpPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-
-            /// ICON
-            const Icon(
-              Icons.lock_outline,
-              size: 70,
-              color: Colors.pink,
-            ),
-
+            const Icon(Icons.lock_outline, size: 70, color: Colors.pink),
             const SizedBox(height: 20),
-
-            /// TITLE
             const Text(
               "Enter OTP",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-
             const SizedBox(height: 10),
-
-            /// SUBTITLE WITH PHONE NUMBER
             Text(
               "We sent a 6-digit OTP to\n${widget.phoneNumber}",
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.grey),
             ),
-
             const SizedBox(height: 30),
-
-            /// OTP BOXES
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: List.generate(6, otpBox),
             ),
-
             const SizedBox(height: 30),
-
-            /// VERIFY BUTTON
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -140,13 +152,11 @@ class _OtpPageState extends State<OtpPage> {
                 ),
                 onPressed: isLoading ? null : verifyOtp,
                 child: isLoading
-                    ? const CircularProgressIndicator(
-                        color: Colors.white,
-                      )
+                    ? const CircularProgressIndicator(color: Colors.white)
                     : const Text(
-                        "Verify OTP",
-                        style: TextStyle(fontSize: 18),
-                      ),
+                  "Verify OTP",
+                  style: TextStyle(fontSize: 18),
+                ),
               ),
             ),
           ],

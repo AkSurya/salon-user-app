@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:Beautiq/db_services/phone_auth_service.dart';
 import 'package:Beautiq/screens/main_navigation.dart';
+import 'package:Beautiq/screens/user_name_screen.dart';
 import 'otp_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -81,9 +83,9 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       String fullPhone = "+91$phone";
-
       await PhoneAuthService.verifyPhoneNumber(fullPhone);
 
+      if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -113,26 +115,59 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => isLoading = true);
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-    } on FirebaseAuthException {
-      // If user doesn't exist, create new account
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
+      UserCredential credential;
+      try {
+        credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      } on FirebaseAuthException {
+        credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      }
+
+      if (!mounted) return;
+      await _checkAndNavigate(credential.user!);
+    } catch (e) {
+      setState(() => isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Login failed: $e")),
       );
     }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const MainNavigation(),
-      ),
-    );
-
     setState(() => isLoading = false);
+  }
+
+  // Check if user has name saved in Firestore
+  Future<void> _checkAndNavigate(User user) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!mounted) return;
+
+      if (doc.exists && (doc.data()?['name'] ?? '').toString().isNotEmpty) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainNavigation()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const UserNameScreen()),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
+      );
+    }
   }
 
   @override
@@ -142,8 +177,6 @@ class _LoginPageState extends State<LoginPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-
-            /// SLIDES (UI unchanged)
             SizedBox(
               height: 320,
               width: double.infinity,
@@ -157,10 +190,7 @@ class _LoginPageState extends State<LoginPage> {
                   return Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.asset(
-                        slides[index]["image"]!,
-                        fit: BoxFit.cover,
-                      ),
+                      Image.asset(slides[index]["image"]!, fit: BoxFit.cover),
                       Container(color: Colors.black.withOpacity(0.45)),
                       Padding(
                         padding: const EdgeInsets.all(20),
@@ -180,9 +210,7 @@ class _LoginPageState extends State<LoginPage> {
                             Text(
                               slides[index]["subtitle"]!,
                               style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 16,
-                              ),
+                                  color: Colors.white70, fontSize: 16),
                             ),
                           ],
                         ),
@@ -192,64 +220,58 @@ class _LoginPageState extends State<LoginPage> {
                 },
               ),
             ),
-
             const SizedBox(height: 30),
-
             Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-
                   const Text(
                     "Welcome to Beautiq",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    style:
+                    TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
-
                   const SizedBox(height: 30),
-
                   isEmailLogin
                       ? Column(
-                          children: [
-                            TextField(
-                              controller: emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: InputDecoration(
-                                labelText: "Email Address",
-                                prefixIcon: const Icon(Icons.email),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 15),
-                            TextField(
-                              controller: passwordController,
-                              obscureText: true,
-                              decoration: InputDecoration(
-                                labelText: "Password",
-                                prefixIcon: const Icon(Icons.lock),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : TextField(
-                          controller: phoneController,
-                          keyboardType: TextInputType.phone,
-                          maxLength: 10,
-                          decoration: InputDecoration(
-                            labelText: "Mobile Number",
-                            prefixIcon: const Icon(Icons.phone),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                    children: [
+                      TextField(
+                        controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(
+                          labelText: "Email Address",
+                          prefixIcon: const Icon(Icons.email),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-
+                      ),
+                      const SizedBox(height: 15),
+                      TextField(
+                        controller: passwordController,
+                        obscureText: true,
+                        decoration: InputDecoration(
+                          labelText: "Password",
+                          prefixIcon: const Icon(Icons.lock),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                      : TextField(
+                    controller: phoneController,
+                    keyboardType: TextInputType.phone,
+                    maxLength: 10,
+                    decoration: InputDecoration(
+                      labelText: "Mobile Number",
+                      prefixIcon: const Icon(Icons.phone),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 20),
-
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -263,30 +285,24 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: isLoading
                           ? null
                           : () {
-                              if (isEmailLogin) {
-                                emailLogin();
-                              } else {
-                                sendOtp();
-                              }
-                            },
+                        if (isEmailLogin) {
+                          emailLogin();
+                        } else {
+                          sendOtp();
+                        }
+                      },
                       child: isLoading
-                          ? const CircularProgressIndicator(
-                              color: Colors.white,
-                            )
+                          ? const CircularProgressIndicator(color: Colors.white)
                           : Text(
-                              isEmailLogin ? "Login" : "Send OTP",
-                              style: const TextStyle(fontSize: 18),
-                            ),
+                        isEmailLogin ? "Login" : "Send OTP",
+                        style: const TextStyle(fontSize: 18),
+                      ),
                     ),
                   ),
-
                   const SizedBox(height: 16),
-
                   TextButton(
                     onPressed: () {
-                      setState(() {
-                        isEmailLogin = !isEmailLogin;
-                      });
+                      setState(() => isEmailLogin = !isEmailLogin);
                     },
                     child: Text(
                       isEmailLogin

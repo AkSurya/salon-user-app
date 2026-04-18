@@ -12,49 +12,48 @@ class BookingConfirmationPage extends StatelessWidget {
     required this.totalAmount,
   });
 
-  String generateBookingId() {
-    final random = Random();
-    return "BQ${100000 + random.nextInt(900000)}";
+  // Use real Firestore booking ID if available, otherwise generate display ID
+  String get bookingId {
+    final ids = booking['bookingIds'];
+    if (ids is List && ids.isNotEmpty) {
+      // Show shortened version of first Firestore doc ID
+      return "BQ-${ids[0].toString().substring(0, 8).toUpperCase()}";
+    }
+    return "BQ-CONFIRMED";
   }
 
- List<Map<String, dynamic>> _extractServices() {
-  final services = booking["services"];
+  List<Map<String, dynamic>> _extractServices() {
+    final services = booking["services"];
 
-  // CART BOOKING
-  if (services is List && services.isNotEmpty) {
-    return services
-        .map<Map<String, dynamic>>(
-            (e) => Map<String, dynamic>.from(e))
-        .toList();
+    if (services is List && services.isNotEmpty) {
+      return services
+          .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+
+    if (booking["title"] != null) {
+      return [
+        {
+          "title": booking["title"],
+          "date": booking["date"],
+          "time": booking["time"],
+          "salon": booking["salon"],
+        }
+      ];
+    }
+
+    return [];
   }
-
-  // SINGLE BOOKING (Emergency / Normal)
-  if (booking["title"] != null) {
-    return [
-      {
-        "title": booking["title"],
-        "date": booking["date"],
-        "time": booking["time"],
-        "salon": booking["salon"],
-      }
-    ];
-  }
-
-  return [];
-}
-
 
   void addToCalendar() {
     final extractedServices = _extractServices();
-
     if (extractedServices.isEmpty) return;
 
     final firstService = extractedServices.first;
 
     DateTime selectedDate;
     try {
-      selectedDate =
-          DateTime.parse(firstService["date"] ?? "");
+      selectedDate = DateTime.parse(firstService["date"] ?? "");
     } catch (e) {
       selectedDate = DateTime.now();
     }
@@ -62,12 +61,11 @@ class BookingConfirmationPage extends StatelessWidget {
     final event = Event(
       title: firstService["title"] ?? "Salon Service",
       description:
-          "Salon Booking at ${firstService["salon"] ?? "Salon"}",
-      location: firstService["salon"] ?? "Salon",
+      "Salon Booking at ${firstService["salonName"] ?? firstService["salon"] ?? "Salon"}",
+      location:
+      firstService["salonName"] ?? firstService["salon"] ?? "Salon",
       startDate: selectedDate,
-      endDate: selectedDate.add(
-        const Duration(hours: 1),
-      ),
+      endDate: selectedDate.add(const Duration(hours: 1)),
     );
 
     Add2Calendar.addEvent2Cal(event);
@@ -75,8 +73,8 @@ class BookingConfirmationPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bookingId = generateBookingId();
     final extractedServices = _extractServices();
+    final customerName = booking['customerName'] ?? '';
 
     return Scaffold(
       appBar: AppBar(
@@ -87,171 +85,99 @@ class BookingConfirmationPage extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-
             const SizedBox(height: 20),
-
-            const Icon(
-              Icons.check_circle,
-              color: Colors.green,
-              size: 90,
-            ),
-
+            const Icon(Icons.check_circle, color: Colors.green, size: 90),
             const SizedBox(height: 20),
-
             const Text(
-              "Payment Successful!",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              "Booking Successful!",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
-
             const SizedBox(height: 30),
-
             Card(
               shape: RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(16),
               ),
               elevation: 4,
               child: Padding(
-                padding:
-                    const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
-                    _infoRow(
-                        "Booking ID", bookingId),
-
+                    _infoRow("Booking ID", bookingId),
+                    if (customerName.isNotEmpty)
+                      _infoRow("Customer", customerName),
                     const SizedBox(height: 12),
-
                     if (extractedServices.isNotEmpty) ...[
-
-                      if (extractedServices.length >
-                          1)
+                      if (extractedServices.length > 1)
                         const Text(
                           "Services:",
                           style: TextStyle(
-                            fontWeight:
-                                FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                              fontWeight: FontWeight.bold, fontSize: 16),
                         ),
-
                       const SizedBox(height: 10),
-
-                      ...extractedServices
-                          .map((service) {
-                        final title =
-                            service["title"] ??
-                                "Service";
-                        final date =
-                            service["date"];
-                        final time =
-                            service["time"];
+                      ...extractedServices.map((service) {
+                        final title = service["title"] ?? "Service";
+                        final date = service["date"];
+                        final time = service["time"];
                         final salon =
-                            service["salon"];
+                            service["salonName"] ?? service["salon"];
 
                         return Padding(
-                          padding:
-                              const EdgeInsets
-                                  .symmetric(
-                                      vertical: 6),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment
-                                    .start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-
                               Text(
-                                extractedServices
-                                            .length >
-                                        1
+                                extractedServices.length > 1
                                     ? "• $title"
                                     : title,
-                                style:
-                                    const TextStyle(
-                                  fontWeight:
-                                      FontWeight
-                                          .w600,
-                                ),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600),
                               ),
-
                               if (date != null &&
-                                  date
-                                      .toString()
-                                      .isNotEmpty)
-                                Text(
-                                    "Date: $date"),
-
+                                  date.toString().isNotEmpty)
+                                Text("Date: $date"),
                               if (time != null &&
-                                  time
-                                      .toString()
-                                      .isNotEmpty)
-                                Text(
-                                    "Time: $time"),
-
+                                  time.toString().isNotEmpty)
+                                Text("Time: $time"),
                               if (salon != null &&
-                                  salon
-                                      .toString()
-                                      .isNotEmpty)
-                                Text(
-                                    "Salon: $salon"),
+                                  salon.toString().isNotEmpty)
+                                Text("Salon: $salon"),
                             ],
                           ),
                         );
                       }).toList(),
-
                       const SizedBox(height: 12),
-
-                      _infoRow("Amount Paid",
-                          "₹$totalAmount"),
+                      _infoRow("Amount Paid", "₹$totalAmount"),
                     ] else ...[
-
                       const Text(
                         "Booking Confirmed",
-                        style: TextStyle(
-                            color: Colors.grey),
+                        style: TextStyle(color: Colors.grey),
                       ),
-
                       const SizedBox(height: 8),
-
-                      _infoRow("Amount Paid",
-                          "₹$totalAmount"),
+                      _infoRow("Amount Paid", "₹$totalAmount"),
                     ],
                   ],
                 ),
               ),
             ),
-
             const Spacer(),
-
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                icon: const Icon(
-                    Icons.calendar_month),
-                label:
-                    const Text("Add to Calendar"),
+                icon: const Icon(Icons.calendar_month),
+                label: const Text("Add to Calendar"),
                 onPressed: addToCalendar,
               ),
             ),
-
             const SizedBox(height: 10),
-
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () {
-                  Navigator.popUntil(
-                      context,
-                      (route) =>
-                          route.isFirst);
+                  Navigator.popUntil(context, (route) => route.isFirst);
                 },
-                child:
-                    const Text("Back to Home"),
+                child: const Text("Back to Home"),
               ),
             ),
           ],
@@ -260,30 +186,16 @@ class BookingConfirmationPage extends StatelessWidget {
     );
   }
 
-  Widget _infoRow(
-      String title, String value) {
+  Widget _infoRow(String title, String value) {
     return Padding(
-      padding:
-          const EdgeInsets.symmetric(
-              vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        mainAxisAlignment:
-            MainAxisAlignment
-                .spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontWeight:
-                  FontWeight.w600,
-            ),
-          ),
+          Text(title,
+              style: const TextStyle(fontWeight: FontWeight.w600)),
           Flexible(
-            child: Text(
-              value,
-              textAlign:
-                  TextAlign.right,
-            ),
+            child: Text(value, textAlign: TextAlign.right),
           ),
         ],
       ),

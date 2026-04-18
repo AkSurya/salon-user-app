@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'cart_page.dart';
 
 class BookingPage extends StatefulWidget {
@@ -10,42 +12,43 @@ class BookingPage extends StatefulWidget {
 
 class _BookingPageState extends State<BookingPage> {
   final DateTime _currentMonth = DateTime.now();
+  int? _selectedDay;
 
-  /// Dummy availability data
-  final Map<int, List<Map<String, dynamic>>> salonAvailability = {
-    3: [
-      {
-        "name": "Royal Cuts Salon",
-        "services": ["Haircut", "Facial"],
-      },
-      {
-        "name": "Urban Style Studio",
-        "services": ["Massage"],
-      },
-    ],
-    7: [
-      {
-        "name": "Fashion Hub",
-        "services": ["MakeUp", "Threading"],
-      },
-    ],
-    12: [
-      {
-        "name": "Modern Style Studio",
-        "services": ["Haircut", "Shaving"],
-      },
-    ],
-  };
+  // Real salons fetched from Firestore
+  List<Map<String, dynamic>> _salons = [];
+  bool _isLoading = true;
 
-  /// Service Prices
-  final Map<String, int> servicePrices = {
-    "Haircut": 300,
-    "Facial": 700,
-    "Massage": 1000,
-    "MakeUp": 1500,
-    "Threading": 200,
-    "Shaving": 250,
-  };
+  final List<String> timeSlots = [
+    "10:00 AM",
+    "11:00 AM",
+    "12:00 PM",
+    "2:00 PM",
+    "4:00 PM",
+    "6:00 PM",
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSalons();
+  }
+
+  Future<void> _fetchSalons() async {
+    try {
+      final snapshot =
+      await FirebaseFirestore.instance.collection('salons').get();
+      setState(() {
+        _salons = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
 
   int get daysInMonth =>
       DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
@@ -53,32 +56,20 @@ class _BookingPageState extends State<BookingPage> {
   int get firstWeekday =>
       DateTime(_currentMonth.year, _currentMonth.month, 1).weekday;
 
-  /// SHOW BOOKING DETAILS
   void _showDayDetails(int day) {
-    final salons = salonAvailability[day];
-
-    if (salons == null) {
+    if (_salons.isEmpty) {
       showModalBottomSheet(
         context: context,
         builder: (_) => const Padding(
           padding: EdgeInsets.all(24),
-          child: Center(child: Text("No salons available")),
+          child: Center(child: Text("No salons available yet")),
         ),
       );
       return;
     }
 
-    /// Stores selected time for each service
+    // Track selected time per salon+service combo
     final Map<String, String?> selectedSlots = {};
-
-    final timeSlots = [
-      "10:00 AM",
-      "11:00 AM",
-      "12:00 PM",
-      "2:00 PM",
-      "4:00 PM",
-      "6:00 PM",
-    ];
 
     showModalBottomSheet(
       context: context,
@@ -89,200 +80,243 @@ class _BookingPageState extends State<BookingPage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
-              padding: const EdgeInsets.all(16),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Text(
-                        "$day ${_monthName(_currentMonth.month)} ${_currentMonth.year}",
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+            return DraggableScrollableSheet(
+              initialChildSize: 0.85,
+              maxChildSize: 0.95,
+              minChildSize: 0.5,
+              expand: false,
+              builder: (context, scrollController) {
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Text(
+                          "$day ${_monthName(_currentMonth.month)} ${_currentMonth.year}",
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    ...salons.map((salon) {
-                      final services =
-                          (salon["services"] as List<dynamic>)
-                              .cast<String>();
-
-                      return Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(16),
+                      const SizedBox(height: 4),
+                      const Center(
+                        child: Text(
+                          "Select a salon and time slot",
+                          style: TextStyle(color: Colors.grey, fontSize: 13),
                         ),
-                        child: ExpansionTile(
-                          title: Text(
-                            salon["name"],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          children: services.map((service) {
-                            selectedSlots.putIfAbsent(
-                                service, () => null);
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: ListView.builder(
+                          controller: scrollController,
+                          itemCount: _salons.length,
+                          itemBuilder: (context, salonIndex) {
+                            final salon = _salons[salonIndex];
+                            final salonName =
+                                salon['name'] ?? 'Salon';
+                            final salonId = salon['id'] ?? '';
+                            final List<dynamic> services =
+                            List<dynamic>.from(
+                                salon['services'] ?? []);
 
-                            final selectedSlot =
-                                selectedSlots[service];
-
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment
-                                        .start,
-                                children: [
-                                  /// Service name + price
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment
-                                            .spaceBetween,
-                                    children: [
-                                      Text(
-                                        service,
-                                        style:
-                                            const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight:
-                                              FontWeight
-                                                  .bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        "₹${servicePrices[service] ?? 500}",
-                                        style:
-                                            const TextStyle(
-                                          fontWeight:
-                                              FontWeight
-                                                  .w600,
+                            return Card(
+                              shape: RoundedRectangleBorder(
+                                borderRadius:
+                                BorderRadius.circular(16),
+                              ),
+                              margin: const EdgeInsets.only(
+                                  bottom: 12),
+                              child: ExpansionTile(
+                                title: Text(
+                                  salonName,
+                                  style: const TextStyle(
+                                      fontWeight:
+                                      FontWeight.w600),
+                                ),
+                                subtitle: Text(
+                                  salon['address'] ?? '',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey),
+                                ),
+                                children: services.isEmpty
+                                    ? [
+                                  const Padding(
+                                    padding:
+                                    EdgeInsets.all(
+                                        12),
+                                    child: Text(
+                                      "No services listed",
+                                      style: TextStyle(
                                           color:
-                                              Colors.pink,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(
-                                      height: 10),
-
-                                  /// Time slots
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children:
-                                        timeSlots.map(
-                                            (slot) {
-                                      final isSelected =
-                                          selectedSlot ==
-                                              slot;
-
-                                      return ChoiceChip(
-                                        label:
-                                            Text(slot),
-                                        selected:
-                                            isSelected,
-                                        selectedColor:
-                                            Colors.pink,
-                                        labelStyle:
-                                            TextStyle(
-                                          color: isSelected
-                                              ? Colors
-                                                  .white
-                                              : Colors
-                                                  .black,
-                                        ),
-                                        onSelected:
-                                            (selected) {
-                                          setModalState(
-                                              () {
-                                            selectedSlots[
-                                                    service] =
-                                                selected
-                                                    ? slot
-                                                    : null;
-                                          });
-                                        },
-                                      );
-                                    }).toList(),
-                                  ),
-
-                                  const SizedBox(
-                                      height: 14),
-
-                                  /// Confirm button
-                                  SizedBox(
-                                    width:
-                                        double.infinity,
-                                    child:
-                                        ElevatedButton(
-                                      style:
-                                          ElevatedButton
-                                              .styleFrom(
-                                        backgroundColor:
-                                            Colors.pink,
-                                        shape:
-                                            RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius
-                                                  .circular(
-                                                      24),
-                                        ),
-                                      ),
-                                      onPressed:
-                                          selectedSlot ==
-                                                  null
-                                              ? null
-                                              : () {
-                                                  final bookingData =
-                                                      {
-                                                    "title":
-                                                        service,
-                                                    "salon":
-                                                        salon["name"],
-                                                    "date":
-                                                        "$day ${_monthName(_currentMonth.month)} ${_currentMonth.year}",
-                                                    "time":
-                                                        selectedSlot,
-                                                    "price":
-                                                        servicePrices[
-                                                                service] ??
-                                                            500,
-                                                  };
-
-                                                  CartPage
-                                                      .cartItems
-                                                      .add(
-                                                          bookingData);
-
-                                                  Navigator.pop(
-                                                      context);
-
-                                                  Navigator.pushNamed(
-                                                      context,
-                                                      '/cart');
-                                                },
-                                      child: const Text(
-                                          "Confirm Booking"),
+                                          Colors.grey),
                                     ),
-                                  ),
-                                ],
+                                  )
+                                ]
+                                    : services.map((service) {
+                                  final serviceKey =
+                                      "$salonId-$service";
+                                  selectedSlots
+                                      .putIfAbsent(
+                                      serviceKey,
+                                          () => null);
+                                  final selectedSlot =
+                                  selectedSlots[
+                                  serviceKey];
+
+                                  return Padding(
+                                    padding:
+                                    const EdgeInsets
+                                        .all(12),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                      CrossAxisAlignment
+                                          .start,
+                                      children: [
+                                        // Service name
+                                        Row(
+                                          mainAxisAlignment:
+                                          MainAxisAlignment
+                                              .spaceBetween,
+                                          children: [
+                                            Text(
+                                              service
+                                                  .toString(),
+                                              style: const TextStyle(
+                                                  fontSize:
+                                                  16,
+                                                  fontWeight:
+                                                  FontWeight
+                                                      .bold),
+                                            ),
+                                            // Option B: replace with real price from Firestore when available
+                                            const Text(
+                                              "Price on visit",
+                                              style: TextStyle(
+                                                  color: Colors
+                                                      .pink,
+                                                  fontWeight:
+                                                  FontWeight
+                                                      .w600),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(
+                                            height: 10),
+
+                                        // Time slots
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: timeSlots
+                                              .map((slot) {
+                                            final isSelected =
+                                                selectedSlot ==
+                                                    slot;
+                                            return ChoiceChip(
+                                              label: Text(
+                                                  slot),
+                                              selected:
+                                              isSelected,
+                                              selectedColor:
+                                              Colors.pink,
+                                              labelStyle:
+                                              TextStyle(
+                                                color: isSelected
+                                                    ? Colors
+                                                    .white
+                                                    : Colors
+                                                    .black,
+                                              ),
+                                              onSelected:
+                                                  (selected) {
+                                                setModalState(
+                                                        () {
+                                                      selectedSlots[
+                                                      serviceKey] =
+                                                      selected
+                                                          ? slot
+                                                          : null;
+                                                    });
+                                              },
+                                            );
+                                          }).toList(),
+                                        ),
+
+                                        const SizedBox(
+                                            height: 14),
+
+                                        // Add to cart button
+                                        SizedBox(
+                                          width: double
+                                              .infinity,
+                                          child:
+                                          ElevatedButton(
+                                            style: ElevatedButton
+                                                .styleFrom(
+                                              backgroundColor:
+                                              Colors.pink,
+                                              shape:
+                                              RoundedRectangleBorder(
+                                                borderRadius:
+                                                BorderRadius
+                                                    .circular(
+                                                    24),
+                                              ),
+                                            ),
+                                            onPressed:
+                                            selectedSlot ==
+                                                null
+                                                ? null
+                                                : () {
+                                              final bookingData =
+                                              {
+                                                "title":
+                                                service.toString(),
+                                                "salonId":
+                                                salonId,
+                                                "salonName":
+                                                salonName,
+                                                "salon":
+                                                salonName,
+                                                "date":
+                                                "$day ${_monthName(_currentMonth.month)} ${_currentMonth.year}",
+                                                "time":
+                                                selectedSlot,
+                                                "price":
+                                                0, // Option B: add real price when Firestore has it
+                                              };
+
+                                              CartPage
+                                                  .cartItems
+                                                  .add(
+                                                  bookingData);
+
+                                              Navigator.pop(
+                                                  context);
+                                              Navigator.pushNamed(
+                                                  context,
+                                                  '/cart');
+                                            },
+                                            child: const Text(
+                                                "Add to Cart"),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
                               ),
                             );
-                          }).toList(),
+                          },
                         ),
-                      );
-                    }).toList(),
-
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             );
           },
         );
@@ -297,7 +331,10 @@ class _BookingPageState extends State<BookingPage> {
       appBar: AppBar(
         title: const Text("Bookings"),
       ),
-      body: Padding(
+      body: _isLoading
+          ? const Center(
+          child: CircularProgressIndicator(color: Colors.pink))
+          : Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
@@ -308,11 +345,17 @@ class _BookingPageState extends State<BookingPage> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 8),
+            Text(
+              "${_salons.length} salon${_salons.length == 1 ? '' : 's'} available",
+              style: const TextStyle(
+                  color: Colors.grey, fontSize: 13),
+            ),
             const SizedBox(height: 16),
 
             Row(
               mainAxisAlignment:
-                  MainAxisAlignment.spaceAround,
+              MainAxisAlignment.spaceAround,
               children: const [
                 "Mon",
                 "Tue",
@@ -324,11 +367,11 @@ class _BookingPageState extends State<BookingPage> {
               ]
                   .map(
                     (d) => Text(
-                      d,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600),
-                    ),
-                  )
+                  d,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600),
+                ),
+              )
                   .toList(),
             ),
             const SizedBox(height: 12),
@@ -336,9 +379,9 @@ class _BookingPageState extends State<BookingPage> {
             Expanded(
               child: GridView.builder(
                 itemCount:
-                    daysInMonth + firstWeekday - 1,
+                daysInMonth + firstWeekday - 1,
                 gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
+                const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 7,
                   crossAxisSpacing: 6,
                   mainAxisSpacing: 6,
@@ -350,31 +393,51 @@ class _BookingPageState extends State<BookingPage> {
 
                   final day =
                       index - (firstWeekday - 2);
-                  final hasSalon =
-                      salonAvailability
-                          .containsKey(day);
+                  final isSelected =
+                      _selectedDay == day;
+                  final isPast = day <
+                      DateTime.now().day &&
+                      _currentMonth.month ==
+                          DateTime.now().month;
 
                   return GestureDetector(
-                    onTap: () =>
-                        _showDayDetails(day),
+                    onTap: isPast
+                        ? null
+                        : () {
+                      setState(() =>
+                      _selectedDay = day);
+                      _showDayDetails(day);
+                    },
                     child: Container(
                       decoration: BoxDecoration(
-                        color: hasSalon
+                        color: isPast
+                            ? Colors.grey[200]
+                            : isSelected
                             ? Colors.pink
+                            : _salons.isNotEmpty
+                            ? Colors.pink
+                            .withOpacity(
+                            0.15)
                             : Colors.white,
                         borderRadius:
-                            BorderRadius.circular(
-                                10),
+                        BorderRadius.circular(10),
+                        border: isSelected
+                            ? Border.all(
+                            color: Colors.pink,
+                            width: 2)
+                            : null,
                       ),
                       child: Center(
                         child: Text(
                           day.toString(),
                           style: TextStyle(
-                            color: hasSalon
+                            color: isPast
+                                ? Colors.grey
+                                : isSelected
                                 ? Colors.white
                                 : Colors.black,
                             fontWeight:
-                                FontWeight.bold,
+                            FontWeight.bold,
                           ),
                         ),
                       ),
