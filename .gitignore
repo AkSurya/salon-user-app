@@ -1,0 +1,13 @@
+# Android/Flutter generated files
+.gradle/
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugin-dependencies
+.packages
+.pub-cache/
+.pub/
+
+# Secrets - DO NOT UPLOAD
+google-services.json
+local.properties
